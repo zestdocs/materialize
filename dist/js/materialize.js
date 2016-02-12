@@ -1,5 +1,5 @@
 /*!
- * Materialize v0.97.5 (http://materializecss.com)
+ * Materialize vundefined (http://materializecss.com)
  * Copyright 2014-2015 Materialize
  * MIT License (https://raw.githubusercontent.com/Dogfalo/materialize/master/LICENSE)
  */
@@ -534,6 +534,14 @@ if ($) {
         verticalOffset = originHeight;
       }
 
+      // Check for scrolling positioned container.
+      var scrollOffset = 0;
+      var wrapper = origin.parent();
+      if (!wrapper.is('body') && wrapper[0].scrollHeight > wrapper[0].clientHeight) {
+        scrollOffset = wrapper[0].scrollTop;
+      }
+
+
       if (offsetLeft + activates.innerWidth() > $(window).width()) {
         // Dropdown goes past screen on right, force right alignment
         currAlignment = 'right';
@@ -571,7 +579,7 @@ if ($) {
       // Position dropdown
       activates.css({
         position: 'absolute',
-        top: origin.position().top + verticalOffset,
+        top: origin.position().top + verticalOffset + scrollOffset,
         left: leftPosition
       });
 
@@ -672,7 +680,8 @@ if ($) {
   $(document).ready(function(){
     $('.dropdown-button').dropdown();
   });
-}( jQuery ));;(function($) {
+}( jQuery ));
+;(function($) {
     var _stack = 0,
     _lastID = 0,
     _generateID = function() {
@@ -914,7 +923,7 @@ if ($) {
         var count = 0;
         while (ancestor !== null && !$(ancestor).is(document)) {
           var curr = $(ancestor);
-          if (curr.css('overflow') === 'hidden') {
+          if (curr.css('overflow') !== 'visible') {
             curr.css('overflow', 'visible');
             if (ancestorsChanged === undefined) {
               ancestorsChanged = curr;
@@ -941,10 +950,10 @@ if ($) {
             returnToOriginal();
           });
           // Animate Overlay
-          $('body').append(overlay);
-          overlay.velocity({opacity: 1}, {duration: inDuration, queue: false, easing: 'easeOutQuad'}
-            );
-
+          // Put before in origin image to preserve z-index layering.
+          origin.before(overlay);
+          overlay.velocity({opacity: 1},
+                           {duration: inDuration, queue: false, easing: 'easeOutQuad'} );
 
         // Add and animate caption if it exists
         if (origin.data('caption') !== "") {
@@ -954,8 +963,6 @@ if ($) {
           $photo_caption.css({ "display": "inline" });
           $photo_caption.velocity({opacity: 1}, {duration: inDuration, queue: false, easing: 'easeOutQuad'});
         }
-
-
 
         // Resize Image
         var ratio = 0;
@@ -1021,7 +1028,7 @@ if ($) {
 
       // Return on scroll
       $(window).scroll(function() {
-        if (overlayActive ) {
+        if (overlayActive) {
           returnToOriginal();
         }
       });
@@ -1106,7 +1113,9 @@ if ($) {
               $(this).remove();
 
               // Remove overflow overrides on ancestors
-              ancestorsChanged.css('overflow', '');
+              if (ancestorsChanged) {
+                ancestorsChanged.css('overflow', '');
+              }
             }
           });
 
@@ -2674,6 +2683,20 @@ $(document).ready(function(){
       }
     };
 
+    // Radio and Checkbox focus class
+    var radio_checkbox = 'input[type=radio], input[type=checkbox]';
+    $(document).on('keyup.radio', radio_checkbox, function(e) {
+      // TAB, check if tabbing to radio or checkbox.
+      if (e.which === 9) {
+        $(this).addClass('tabbed');
+        var $this = $(this);
+        $this.one('blur', function(e) {
+          
+          $(this).removeClass('tabbed');
+        });
+        return;
+      }
+    });
 
     // Textarea Auto Resize
     var hiddenDiv = $('.hiddendiv').first();
@@ -2839,6 +2862,78 @@ $(document).ready(function(){
         thumb.removeClass('active');
       }
     });
+
+		/**************************
+		 * Auto complete plugin  *
+		 *************************/
+		$(input_selector).each(function() {
+			var $input = $(this);
+
+				if( $input.hasClass('autocomplete') ) {
+					var $array = $input.data('array'),
+							$inputDiv = $input.closest('.input-field'); // Div to append on
+
+					// Check if "data-array" isn't empty
+					if( $array !== '' ) {
+						// Create html element
+						var $html = '<ul class="autocomplete-content hide">';
+
+						for( var i = 0; i < $array.length; i++ ) {
+							// If path and class aren't empty add image to auto complete else create normal element
+							if( $array[i]['path'] !== '' && $array[i]['class'] !== '' ) {
+								$html += '<li class="autocomplete-option"><img src="'+$array[i]['path']+'" class="'+$array[i]['class']+'"><span>'+$array[i]['value']+'</span></li>';
+							} else {
+								$html += '<li class="autocomplete-option"><span>'+$array[i]['value']+'</span></li>';
+							}
+						}
+
+						$html += '</ul>';
+						$inputDiv.append($html); // Set ul in body
+						// End create html element
+
+						function highlight(string) {
+							$('.autocomplete-content li').each(function () {
+								var matchStart = $(this).text().toLowerCase().indexOf("" + string.toLowerCase() + ""),
+									 	matchEnd = matchStart + string.length - 1,
+									 	beforeMatch = $(this).text().slice(0, matchStart),
+									 	matchText = $(this).text().slice(matchStart, matchEnd + 1),
+									 	afterMatch = $(this).text().slice(matchEnd + 1);
+								$(this).html("<span>" + beforeMatch + "<span class='highlight'>" + matchText + "</span>" + afterMatch + "</span>");
+							});
+						}
+
+						// Perform search
+						$(document).on('keyup', $input, function () {
+							var $val = $input.val().trim(),
+									$select = $('.autocomplete-content');
+							// Check if the input isn't empty
+							if ($val != '') {
+								$select.children('li').addClass('hide');
+								$select.children('li').filter(function() {
+									$select.removeClass('hide'); // Show results
+
+									// If text needs to highlighted
+									if( $input.hasClass('highlight-matching') ) {
+										highlight($val);
+									}
+
+									return $(this).text().indexOf($val) !== -1;
+								}).removeClass('hide');
+							} else {
+								$select.children().addClass('hide');
+							}
+						});
+
+						// Set input value
+						$('.autocomplete-option').click(function() {
+							$input.val($(this).text().trim());
+						});
+					} else {
+						return false;
+					}
+				}
+			});
+
   }); // End of $(document).ready
 
   /*******************
@@ -3036,7 +3131,7 @@ $(document).ready(function(){
       }
 
       // Make option as selected and scroll to selected position
-      activateOption = function(collection, newOption) {
+      var activateOption = function(collection, newOption) {
         if (newOption) {
           collection.find('li.selected').removeClass('selected');
           var option = $(newOption);
@@ -3160,8 +3255,7 @@ $(document).ready(function(){
     }
   };
 
-}( jQuery ));
-;(function ($) {
+}( jQuery ));;(function ($) {
 
   var methods = {
 
